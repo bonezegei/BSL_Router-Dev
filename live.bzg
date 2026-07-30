@@ -1,0 +1,39 @@
+loadNative("bsl_router.dll", "createRouterMgr");
+
+var routerMgr = createRouterMgr();
+var rtr = routerMgr.create();
+
+// 1. Setup Interfaces and Routes
+rtr.addInterface("lan", "192.168.1.1", "255.255.255.0");
+rtr.addInterface("wan", "8.8.8.1", "255.255.255.0");
+
+// 2. Set strict Bandwidth Limit on WAN: 1000 Bytes per second
+rtr.setBandwidth("wan", 1000);
+rtr.addRoute("0.0.0.0", "0.0.0.0", "8.8.8.2", "wan");
+
+print("--- LIVE ROUTER STARTED ---");
+print("WAN Interface Bandwidth Limit: 1000 Bytes/sec");
+print("Generating traffic at 1500 Bytes/sec...");
+print("-----------------------------------------");
+
+var pktCount = 0;
+
+while (true) {
+    pktCount++;
+    
+    // Simulate a 300-byte packet from a LAN device to the Internet
+    var res = rtr.route("8.8.8.8", "192.168.1.100", 300);
+    
+    if (res != null) {
+        print("[Packet " + pktCount + "] SUCCESS -> Forwarded out " + res.interface + " (300 Bytes)");
+    } else {
+        print("[Packet " + pktCount + "] DROPPED -> QoS Rate Limit Exceeded");
+    }
+    
+    // Delay 200 milliseconds (0.2 seconds).
+    // This sends 5 packets per second (5 * 300 = 1500 bytes/sec).
+    // The first 3 packets (900 bytes) will pass.
+    // The 4th and 5th packets will be DROPPED.
+    // On the next second, the C layer resets the bucket, and traffic flows again.
+    delay(200);
+}

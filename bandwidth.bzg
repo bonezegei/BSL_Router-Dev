@@ -1,0 +1,47 @@
+loadNative("bsl_router.dll", "createRouterMgr");
+var routerMgr = createRouterMgr();
+var rtr1 = routerMgr.create();
+
+// 1. Setup Interfaces & QoS
+rtr1.addInterface("eth0", "192.168.1.1", "255.255.255.0");
+rtr1.addInterface("wan1", "8.8.8.1", "255.255.255.0");
+
+// Limit the WAN interface to 1000 Bytes per second
+rtr1.setBandwidth("wan1", 1000);
+
+// Add Default Route
+rtr1.addRoute("0.0.0.0", "0.0.0.0", "8.8.8.2", "wan1");
+
+// 2. View All Routes Dynamically
+print("--- Active Routing Table ---");
+var routes = rtr1.getRoutes();
+
+// 3. Test Routing & Bandwidth Control
+print("--- Sending Traffic ---");
+var ipDest = "8.8.8.8";
+var ipSrc = "192.168.1.55";
+
+// Send 400 bytes (Succeeds)
+var res1 = rtr1.route(ipDest, ipSrc, 400); 
+if (res1 != null) {
+    print("Packet 1 Sent via " + res1.interface);
+}
+
+// Send 400 bytes (Succeeds, total 800)
+var res2 = rtr1.route(ipDest, ipSrc, 400); 
+if (res2 != null) {
+    print("Packet 2 Sent via " + res2.interface);
+}
+
+// Send 400 bytes (FAILS! Total 1200 > 1000 limit per second)
+var res3 = rtr1.route(ipDest, ipSrc, 400); 
+if (res3 != null) {
+    print("Packet 3 Sent via " + res3.interface);
+} else {
+    print("Packet 3 Dropped (QoS Limit Reached)");
+}
+print("");
+
+// 4. View Active Connections (Conntrack / Flows)
+print("--- Active Connection Flows ---");
+var flows = rtr1.getActiveFlows();

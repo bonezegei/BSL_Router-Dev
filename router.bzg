@@ -1,0 +1,30 @@
+loadNative("bsl_router.dll", "createRouterMgr");
+
+var routerMgr = createRouterMgr();
+var rtr1 = routerMgr.create();
+
+// 1. Add Network Interfaces
+// Automatically adds direct connected routes for the subnets
+rtr1.addInterface("eth0", "192.168.1.1", "255.255.255.0");
+rtr1.addInterface("eth1", "10.0.0.1", "255.255.255.0");
+rtr1.addInterface("s0/0/0", "172.16.0.1", "255.255.255.252");
+
+// 2. Add Static Routes
+// addRoute(Destination, SubnetMask, NextHop, Interface)
+rtr1.addRoute("0.0.0.0", "0.0.0.0", "172.16.0.2", "s0/0/0");             // Default Route
+rtr1.addRoute("10.0.10.0", "255.255.255.0", "10.0.0.2", "eth1");       // Specific Subnet Route
+
+// 3. Test the Longest Prefix Match (LPM) Routing Engine
+function testPing(destIp) {
+    var decision = rtr1.route(destIp);
+    if (decision != null) {
+        print("Packet to " + destIp + " -> Forward out " + decision.interface + " via " + decision.nextHop);
+    } else {
+        print("Packet to " + destIp + " -> Dropped (No route to host)");
+    }
+}
+
+print("--- Routing Tests ---");
+testPing("192.168.1.50");   // Should hit directly connected eth0
+testPing("10.0.10.25");     // Should hit specific static route out eth1
+testPing("8.8.8.8");        // Should hit default route out s0/0/0
